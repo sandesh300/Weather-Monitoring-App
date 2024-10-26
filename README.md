@@ -78,6 +78,30 @@ weather.poll.interval=300000  # milliseconds
 ```
 
 ---
+# Weather API Documentation 
+### API Documentation - https://walnut-wrist-9da.notion.site/Real-Time-Data-Processing-System-for-Weather-Monitoring-API-Documentation-12ba272bc3e58074b84cd1edd31295b9
+
+
+
+## Weather Module
+- **Get Current Weather**: `GET /api/weather/{city}`
+- **Get Historical Weather Data**: `GET /api/weather/{city}/history`
+
+---
+
+## Alert Module
+- **Create Alert**: `POST /api/alerts`
+- **Get User Alerts**: `GET /api/alerts`
+- **Delete Alert**: `DELETE /api/alerts/{id}`
+- **Simulate Weather Event**: `POST /api/alerts/simulate`
+
+---
+
+## Daily Summary Module
+- **Get City Daily Summaries**: `GET /api/summaries/{city}`
+- **Get User Daily Summaries**: `GET /api/summaries/user`
+- **Generate Daily Summary**: `POST /api/summaries/generate`
+
 
 ## Application Modules
 
@@ -95,7 +119,7 @@ Displays daily summaries, historical trends, and alerts using React charts and c
 ---
 
 ## Testing
-
+### Test Cases Documentation - https://walnut-wrist-9da.notion.site/Real-Time-Data-Processing-System-for-Weather-Monitoring-Test-Cases-Documentation-12ba272bc3e5808aba3ae74cd9033592
 ### Test Cases
 
 1. **System Setup**: Validate connection to OpenWeatherMap API.
