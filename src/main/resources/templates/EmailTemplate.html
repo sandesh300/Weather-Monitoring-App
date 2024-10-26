@@ -1,0 +1,130 @@
+<!-- weather-alert.html -->
+<!DOCTYPE html>
+<html xmlns:th="http://www.thymeleaf.org">
+<head>
+    <meta charset="UTF-8">
+    <title>Weather Alert</title>
+    <style>
+        body {
+            font-family: Arial, sans-serif;
+            line-height: 1.6;
+            color: #333;
+            max-width: 600px;
+            margin: 0 auto;
+            padding: 20px;
+        }
+        .alert {
+            background-color: #ffe6e6;
+            border-left: 4px solid #ff4444;
+            padding: 15px;
+            margin-bottom: 20px;
+        }
+        .weather-details {
+            background-color: #f5f5f5;
+            padding: 15px;
+            border-radius: 5px;
+        }
+        .weather-item {
+            margin: 10px 0;
+        }
+    </style>
+</head>
+<body>
+<div class="alert">
+    <h2>Weather Alert for <span th:text="${city}">City</span></h2>
+    <p>
+        <strong>Alert Type:</strong> <span th:text="${alertType}">Type</span><br>
+        <strong>Threshold:</strong> <span th:text="${threshold}">Value</span>
+    </p>
+</div>
+
+<div class="weather-details">
+    <h3>Current Weather Conditions:</h3>
+    <div class="weather-item">
+        <strong>Temperature:</strong> <span th:text="${temperature}">20°C</span>
+    </div>
+    <div class="weather-item">
+        <strong>Humidity:</strong> <span th:text="${humidity}">65%</span>
+    </div>
+    <div class="weather-item">
+        <strong>Wind Speed:</strong> <span th:text="${windSpeed}">5 m/s</span>
+    </div>
+    <div class="weather-item">
+        <strong>Condition:</strong> <span th:text="${condition}">Clear</span>
+    </div>
+</div>
+
+<p>
+    This is an automated weather alert based on your configured preferences.
+    You can modify your alert settings at any time through the weather monitoring application.
+</p>
+</body>
+</html>
+
+<!-- daily-summary.html -->
+<!DOCTYPE html>
+<html xmlns:th="http://www.thymeleaf.org">
+<head>
+    <meta charset="UTF-8">
+    <title>Daily Weather Summary</title>
+    <style>
+        body {
+            font-family: Arial, sans-serif;
+            line-height: 1.6;
+            color: #333;
+            max-width: 600px;
+            margin: 0 auto;
+            padding: 20px;
+        }
+        .summary-container {
+            background-color: #f8f9fa;
+            padding: 20px;
+            border-radius: 5px;
+        }
+        .summary-header {
+            background-color: #007bff;
+            color: white;
+            padding: 10px;
+            border-radius: 5px;
+            margin-bottom: 20px;
+        }
+        .summary-section {
+            margin: 15px 0;
+        }
+        .highlight {
+            color: #007bff;
+            font-weight: bold;
+        }
+    </style>
+</head>
+<body>
+<div class="summary-container">
+    <div class="summary-header">
+        <h2>Daily Weather Summary for <span th:text="${city}">City</span></h2>
+        <p>Date: <span th:text="${date}">2024-01-01</span></p>
+    </div>
+
+    <div class="summary-section">
+        <h3>Temperature Summary</h3>
+        <p>Average: <span th:text="${avgTemp}" class="highlight">20°C</span></p>
+        <p>Maximum: <span th:text="${maxTemp}" class="highlight">25°C</span></p>
+        <p>Minimum: <span th:text="${minTemp}" class="highlight">15°C</span></p>
+    </div>
+
+    <div class="summary-section">
+        <h3>Weather Conditions</h3>
+        <p>Dominant Condition: <span th:text="${dominantCondition}" class="highlight">Clear</span></p>
+        <p>Average Humidity: <span th:text="${avgHumidity}" class="highlight">65%</span></p>
+        <p>Average Wind Speed: <span th:text="${avgWindSpeed}" class="highlight">5 m/s</span></p>
+    </div>
+
+    <div class="summary-section">
+        <h3>Notable Events</h3>
+        <ul th:if="${not #lists.isEmpty(alerts)}">
+            <li th:each="alert : ${alerts}" th:text="${alert}">Alert description</li>
+        </ul>
+        <p th:if="${#lists.isEmpty(alerts)}">No significant weather events recorded.</p>
+    </div>
+</div>
+</body>
+</html>
