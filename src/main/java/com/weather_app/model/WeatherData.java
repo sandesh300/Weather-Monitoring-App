@@ -1,12 +1,15 @@
 package com.weather_app.model;
 
+
 import lombok.Data;
 import lombok.NoArgsConstructor;
 import org.springframework.data.annotation.Id;
 import org.springframework.data.mongodb.core.mapping.Document;
-import java.time.Instant;
+
+import java.time.LocalDateTime;
 
 @Data
+@NoArgsConstructor
 @Document(collection = "weather_data")
 public class WeatherData {
     @Id
@@ -17,6 +20,5 @@ public class WeatherData {
     private double feelsLike;
     private double humidity;
     private double windSpeed;
-    private double pressure;
-    private Instant timestamp;
+    private LocalDateTime timestamp;
 }
