@@ -49,7 +49,7 @@ public class DailyWeatherSummaryService {
         return saveDailySummary(summaryDTO);
     }
 
-    private DailyWeatherSummaryDTO calculateDailySummary(List<WeatherData> dailyData) {
+    public DailyWeatherSummaryDTO calculateDailySummary(List<WeatherData> dailyData) {
         DoubleSummaryStatistics tempStats = dailyData.stream()
                 .mapToDouble(WeatherData::getTemperature)
                 .summaryStatistics();

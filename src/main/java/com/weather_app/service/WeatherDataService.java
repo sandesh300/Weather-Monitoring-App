@@ -6,6 +6,7 @@ import com.weather_app.model.WeatherData;
 import com.weather_app.repository.WeatherDataRepository;
 import org.springframework.scheduling.annotation.Scheduled;
 import org.springframework.stereotype.Service;
+import org.springframework.web.client.HttpClientErrorException;
 import org.springframework.web.client.RestTemplate;
 
 import java.util.List;
@@ -51,18 +52,26 @@ public class WeatherDataService {
                 openWeatherMapConfig.getApiKey()
         );
 
-        OpenWeatherMapResponse response = restTemplate.getForObject(url, OpenWeatherMapResponse.class);
-
-        // Log the response for debugging
-        System.out.println("Weather API response for " + city + ": " + response);
-
-        return convertToWeatherData(response, city);
+        try {
+            OpenWeatherMapResponse response = restTemplate.getForObject(url, OpenWeatherMapResponse.class);
+            // Log the response for debugging
+            System.out.println("Weather API response for " + city + ": " + response);
+            return convertToWeatherData(response, city);
+        } catch (HttpClientErrorException e) {
+            System.err.println("HTTP error while fetching data for " + city + ": " + e.getMessage());
+            throw new RuntimeException("Unable to fetch data from OpenWeatherMap for " + city, e);
+        } catch (Exception e) {
+            System.err.println("Error fetching weather data for " + city + ": " + e.getMessage());
+            throw new RuntimeException("Unexpected error occurred while fetching data", e);
+        }
     }
 
 
-
-
     private WeatherData convertToWeatherData(OpenWeatherMapResponse response, String city) {
+        if (response == null || response.getMain() == null || response.getWeather() == null || response.getWeather().isEmpty()) {
+            throw new RuntimeException("Invalid response received from OpenWeatherMap API for city: " + city);
+        }
+
         WeatherData weatherData = new WeatherData();
         weatherData.setCity(city);
         weatherData.setTimestamp(LocalDateTime.now());
@@ -73,6 +82,7 @@ public class WeatherDataService {
         weatherData.setMainCondition(response.getWeather().get(0).getMain());
         return weatherData;
     }
+
 
     public List<WeatherData> getRecentWeatherData(String city, LocalDateTime startTime, LocalDateTime endTime) {
         return weatherDataRepository.findByCityAndTimestampBetween(city, startTime, endTime);

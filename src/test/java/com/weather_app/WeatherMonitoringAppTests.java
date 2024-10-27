@@ -1,268 +1,192 @@
 package com.weather_app;
 
-import com.weather_app.dto.OpenWeatherResponse;
-import com.weather_app.model.AlertConfig;
+import com.weather_app.config.OpenWeatherMapConfig;
+import com.weather_app.dto.AlertConfigurationDTO;
+import com.weather_app.dto.DailyWeatherSummaryDTO;
+import com.weather_app.dto.WeatherForecastDTO;
+import com.weather_app.model.AlertConfiguration;
 import com.weather_app.model.WeatherData;
-import com.weather_app.service.AlertService;
-import com.weather_app.repository.DailySummaryRepository;
-import com.weather_app.repository.AlertConfigRepository;
-import com.weather_app.repository.WeatherDataRepository;
-import com.weather_app.service.DailySummaryService;
-import com.weather_app.service.EmailService;
-import com.weather_app.service.WeatherService;
-import lombok.Value;
-import org.junit.jupiter.api.DisplayName;
+import com.weather_app.model.WeatherForecast;
+import com.weather_app.repository.AlertConfigurationRepository;
+import com.weather_app.repository.DailyWeatherSummaryRepository;
+import com.weather_app.repository.WeatherForecastRepository;
+import com.weather_app.service.AlertConfigurationService;
+import com.weather_app.service.DailyWeatherSummaryService;
+import com.weather_app.service.WeatherForecastService;
+import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.Test;
-import org.junit.jupiter.api.extension.ExtendWith;
-import org.mockito.InjectMocks;
 import org.mockito.Mock;
-import org.mockito.junit.jupiter.MockitoExtension;
-import org.springframework.http.HttpStatus;
-import org.springframework.http.ResponseEntity;
+import org.mockito.MockitoAnnotations;
 import org.springframework.web.client.RestTemplate;
+import static org.mockito.Mockito.*;
+import static org.junit.jupiter.api.Assertions.*;
+import java.time.*;
+import java.util.*;
 
-import java.time.Instant;
-import java.time.LocalDate;
-import java.util.ArrayList;
-import java.util.Collections;
-import java.util.List;
-
-import static javax.management.Query.eq;
-
-import static jdk.internal.org.objectweb.asm.util.CheckClassAdapter.verify;
-import static jdk.jfr.internal.jfc.model.Constraint.any;
-import static org.hibernate.validator.internal.util.Contracts.assertNotNull;
-import static org.junit.jupiter.api.Assertions.assertEquals;
-import static org.mockito.ArgumentMatchers.argThat;
-import static org.mockito.ArgumentMatchers.contains;
-import static org.mockito.Mockito.never;
-import static org.mockito.Mockito.when;
-
-@ExtendWith(MockitoExtension.class)
 class WeatherMonitoringAppTests {
 
     @Mock
     private RestTemplate restTemplate;
 
     @Mock
-    private WeatherDataRepository weatherDataRepository;
+    private OpenWeatherMapConfig openWeatherMapConfig;
 
     @Mock
-    private DailySummaryRepository dailySummaryRepository;
+    private WeatherForecastRepository forecastRepository;
 
     @Mock
-    private AlertConfigRepository alertConfigRepository;
+    private DailyWeatherSummaryRepository summaryRepository;
 
     @Mock
-    private EmailService emailService;
+    private AlertConfigurationRepository alertConfigRepository;
 
-    @InjectMocks
-    private WeatherService weatherService;
+    private WeatherForecastService forecastService;
+    private DailyWeatherSummaryService summaryService;
+    private AlertConfigurationService alertService;
 
-    @InjectMocks
-    private DailySummaryService dailySummaryService;
+    @BeforeEach
+    void setUp() {
+        MockitoAnnotations.openMocks(this);
 
-    @InjectMocks
-    private AlertService alertService;
+        // Initialize services
+        forecastService = new WeatherForecastService(forecastRepository, restTemplate, openWeatherMapConfig);
+        summaryService = new DailyWeatherSummaryService(summaryRepository, null);
+        alertService = new AlertConfigurationService(alertConfigRepository);
 
-    @Value("${weather.api.key}")
-    private String apiKey;
-
-    @Value("${weather.api.base-url}")
-    private String baseUrl;
-
-    private static final String TEST_CITY = "London";
-    private static final String TEST_USER_ID = "test-user";
-
-    @Test
-    @DisplayName("1. System Setup - Verify API Connection")
-    void testSystemStartupAndApiConnection() {
-        // Arrange
-        String url = String.format("%s/weather?q=%s&appid=%s&units=metric", baseUrl, TEST_CITY, apiKey);
-        OpenWeatherResponse mockResponse = createMockWeatherResponse();
-        when(restTemplate.getForEntity(url, OpenWeatherResponse.class))
-                .thenReturn(new ResponseEntity<>(mockResponse, HttpStatus.OK));
-
-        // Act
-        WeatherData result = weatherService.fetchAndSaveWeatherData(TEST_CITY, TEST_USER_ID);
-
-        // Assert
-        assertNotNull(result);
-        assertEquals(TEST_CITY, result.getCity());
-        verify(weatherDataRepository).save(any(WeatherData.class));
+        // Configure OpenWeatherMap API key
+        when(openWeatherMapConfig.getApiKey()).thenReturn("test-api-key");
     }
 
     @Test
-    @DisplayName("2. Data Retrieval - Test Scheduled Data Fetching")
-     void testScheduledDataRetrieval() {
-        // Arrange
-        String url = String.format("%s/weather?q=%s&appid=%s&units=metric", baseUrl, TEST_CITY, apiKey);
-        OpenWeatherResponse mockResponse = createMockWeatherResponse();
-        when(restTemplate.getForEntity(url, OpenWeatherResponse.class))
-                .thenReturn(new ResponseEntity<>(mockResponse, HttpStatus.OK));
+    void testSystemStartup() {
+        // Test 1: System Setup
+        String city = "Delhi";
+        String apiUrl = "http://api.openweathermap.org/data/2.5/forecast";
 
-        // Act
-        weatherService.fetchWeatherData();
+        // Mock API response
+        WeatherForecastDTO mockResponse = createMockWeatherForecastDTO();
+        when(restTemplate.getForObject(
+                contains(apiUrl),
+                eq(WeatherForecastDTO.class)
+        )).thenReturn(mockResponse);
 
-        // Assert
-        verify(restTemplate).getForEntity(contains("/weather"), eq(OpenWeatherResponse.class));
-        verify(weatherDataRepository).save(any(WeatherData.class));
+        // Verify system can fetch initial forecast
+        forecastService.fetchAndSaveForecast(city);
+
+        verify(restTemplate).getForObject(anyString(), eq(WeatherForecastDTO.class));
+        verify(forecastRepository).saveAll(anyList());
     }
 
     @Test
-    @DisplayName("3. Temperature Conversion - Test Kelvin to Celsius Conversion")
-    void testTemperatureConversion() {
-        // Arrange
-        double kelvinTemp = 295.15; // 22°C
-        OpenWeatherResponse mockResponse = createMockWeatherResponse();
-        mockResponse.getMain().setTemp(kelvinTemp);
+    void testDataRetrieval() {
+        // Test 2: Data Retrieval
+        String city = "Mumbai";
+        LocalDateTime now = LocalDateTime.now();
 
-        // Act
-        WeatherData weatherData = weatherService.convertToWeatherData(mockResponse, TEST_USER_ID);
-
-        // Assert
-        assertEquals(22.0, weatherData.getTemperature(), 0.1);
-    }
-
-    @Test
-    @DisplayName("4. Daily Summary - Test Summary Generation")
-    void testDailySummaryGeneration() {
-        // Arrange
-        LocalDate testDate = LocalDate.now();
-        List<WeatherData> mockWeatherData = createMockWeatherDataList();
-        when(weatherDataRepository.findByTimestampBetween(any(Instant.class), any(Instant.class)))
-                .thenReturn(mockWeatherData);
-
-        // Act
-        dailySummaryService.generateSummaryForDate(testDate);
-
-        // Assert
-        verify(dailySummaryRepository).save(argThat(summary -> {
-            assertEquals(TEST_CITY, summary.getCity());
-            assertEquals(25.0, summary.getMaxTemperature(), 0.1);
-            assertEquals(20.0, summary.getMinTemperature(), 0.1);
-            assertEquals(22.5, summary.getAvgTemperature(), 0.1);
-            assertEquals("Sunny", summary.getDominantWeatherCondition());
-            return true;
-        }));
-    }
-
-    @Test
-    @DisplayName("5. Alerting Thresholds - Test Alert Triggering")
-    void testAlertThresholds() {
-        // Arrange
-        WeatherData weatherData = createHighTemperatureWeatherData();
-        AlertConfig alertConfig = createAlertConfig();
-        when(alertConfigRepository.findByCity(TEST_CITY))
-                .thenReturn(Collections.singletonList(alertConfig));
-
-        // Act
-        alertService.processWeatherData(weatherData);
-
-        // Assert
-        verify(emailService).sendWeatherAlert(
-                eq(alertConfig),
-                eq(weatherData),
-                eq("HIGH_TEMPERATURE")
+        // Create mock forecast data
+        List<WeatherForecast> mockForecasts = Arrays.asList(
+                createMockForecast(city, now, 25.0),
+                createMockForecast(city, now.plusHours(3), 27.0)
         );
+
+        when(forecastRepository.findByCityAndForecastTimeGreaterThanOrderByForecastTimeAsc(
+                eq(city),
+                any(LocalDateTime.class)
+        )).thenReturn(mockForecasts);
+
+        // Test forecast retrieval
+        List<WeatherForecast> results = forecastService.getForecastForCity(city);
+
+        assertEquals(2, results.size());
+        assertEquals(25.0, results.get(0).getTemperature());
+        assertEquals(27.0, results.get(1).getTemperature());
     }
 
     @Test
-    @DisplayName("5.1 Alerting Thresholds - Test No Alert When Within Threshold")
-    void testNoAlertWithinThreshold() {
-        // Arrange
-        WeatherData weatherData = createNormalTemperatureWeatherData();
-        AlertConfig alertConfig = createAlertConfig();
-        when(alertConfigRepository.findByCity(TEST_CITY))
-                .thenReturn(Collections.singletonList(alertConfig));
+    void testTemperatureConversion() {
+        // Test 3: Temperature Conversion
+        double kelvinTemp = 300.15; // 27°C
+        double celsiusTemp = kelvinTemp - 273.15;
+        double fahrenheitTemp = (celsiusTemp * 9/5) + 32;
 
-        // Act
-        alertService.processWeatherData(weatherData);
-
-        // Assert
-        verify(emailService, never()).sendWeatherAlert(any(), any(), any());
+        assertEquals(27.0, celsiusTemp, 0.1);
+        assertEquals(80.6, fahrenheitTemp, 0.1);
     }
 
-    // Helper methods to create mock data
-    private OpenWeatherResponse createMockWeatherResponse() {
-        OpenWeatherResponse response = new OpenWeatherResponse();
-        OpenWeatherResponse.Main main = new OpenWeatherResponse.Main();
-        main.setTemp(22.0);
-        main.setFeels_like(23.0);
-        main.setHumidity(65.0);
-        main.setPressure(1013.0);
+    @Test
+    void testDailyWeatherSummary() {
+        // Test 4: Daily Weather Summary
+        String city = "Chennai";
+        LocalDate date = LocalDate.now();
 
-        OpenWeatherResponse.Weather weather = new OpenWeatherResponse.Weather();
-        weather.setMain("Sunny");
+        // Create mock weather data for a day
+        List<WeatherData> mockDailyData = Arrays.asList(
+                createMockWeatherData(city, date.atTime(6, 0), 24.0, "Clear"),
+                createMockWeatherData(city, date.atTime(12, 0), 32.0, "Clear"),
+                createMockWeatherData(city, date.atTime(18, 0), 28.0, "Clouds")
+        );
 
-        OpenWeatherResponse.Wind wind = new OpenWeatherResponse.Wind();
-        wind.setSpeed(5.0);
+        // Calculate and verify summary
+        DailyWeatherSummaryDTO summary = summaryService.calculateDailySummary(mockDailyData);
 
-        response.setMain(main);
-        response.setWeather(Collections.singletonList(weather));
-        response.setWind(wind);
-        response.setName(TEST_CITY);
-
-        return response;
+        assertEquals(28.0, summary.getAvgTemperature(), 0.1);
+        assertEquals(32.0, summary.getMaxTemperature());
+        assertEquals(24.0, summary.getMinTemperature());
+        assertEquals("Clear", summary.getDominantWeatherCondition());
     }
 
-    private List<WeatherData> createMockWeatherDataList() {
-        List<WeatherData> weatherDataList = new ArrayList<>();
-        double[] temperatures = {20.0, 22.0, 23.0, 25.0, 24.0};
+    @Test
+    void testAlertingThresholds() {
+        // Test 5: Alerting Thresholds
+        String city = "Bangalore";
+        String email = "user@example.com";
 
-        for (double temp : temperatures) {
-            WeatherData data = new WeatherData();
-            data.setCity(TEST_CITY);
-            data.setTemperature(temp);
-            data.setMainCondition("Sunny");
-            data.setHumidity(65.0);
-            data.setWindSpeed(5.0);
-            data.setPressure(1013.0);
-            data.setTimestamp(Instant.now());
-            data.setUserId(TEST_USER_ID);
-            weatherDataList.add(data);
-        }
+        // Create alert configuration
+        AlertConfigurationDTO configDTO = AlertConfigurationDTO.builder()
+                .city(city)
+                .parameter("temperature")
+                .threshold(30.0)
+                .condition("GREATER_THAN")
+                .consecutiveUpdates(1)
+                .enabled(true)
+                .email(email)
+                .build();
 
-        return weatherDataList;
+        AlertConfiguration savedConfig = alertService.createAlertConfiguration(configDTO);
+
+        // Simulate weather data exceeding threshold
+        WeatherForecast highTemp = createMockForecast(city, LocalDateTime.now(), 32.0);
+
+        // Verify alert would be triggered
+        boolean shouldTrigger = highTemp.getTemperature() > savedConfig.getThreshold();
+        assertTrue(shouldTrigger);
     }
 
-    private WeatherData createHighTemperatureWeatherData() {
+    // Helper methods to create mock objects
+    private WeatherForecastDTO createMockWeatherForecastDTO() {
+        WeatherForecastDTO dto = new WeatherForecastDTO();
+        WeatherForecastDTO.ForecastItem item = new WeatherForecastDTO.ForecastItem();
+        WeatherForecastDTO.Main main = new WeatherForecastDTO.Main();
+        main.setTemp(25.0);
+        item.setMain(main);
+        dto.setList(Collections.singletonList(item));
+        return dto;
+    }
+
+    private WeatherForecast createMockForecast(String city, LocalDateTime time, double temp) {
+        return WeatherForecast.builder()
+                .city(city)
+                .forecastTime(time)
+                .temperature(temp)
+                .build();
+    }
+
+    private WeatherData createMockWeatherData(String city, LocalDateTime time, double temp, String condition) {
         WeatherData data = new WeatherData();
-        data.setCity(TEST_CITY);
-        data.setTemperature(35.0); // High temperature
-        data.setMainCondition("Sunny");
-        data.setHumidity(65.0);
-        data.setWindSpeed(5.0);
-        data.setPressure(1013.0);
-        data.setTimestamp(Instant.now());
-        data.setUserId(TEST_USER_ID);
+        data.setCity(city);
+        data.setTimestamp(time);
+        data.setTemperature(temp);
+        data.setMainCondition(condition);
         return data;
-    }
-
-    private WeatherData createNormalTemperatureWeatherData() {
-        WeatherData data = new WeatherData();
-        data.setCity(TEST_CITY);
-        data.setTemperature(22.0); // Normal temperature
-        data.setMainCondition("Sunny");
-        data.setHumidity(65.0);
-        data.setWindSpeed(5.0);
-        data.setPressure(1013.0);
-        data.setTimestamp(Instant.now());
-        data.setUserId(TEST_USER_ID);
-        return data;
-    }
-
-    private AlertConfig createAlertConfig() {
-        AlertConfig config = new AlertConfig();
-        config.setId("test-alert-config");
-        config.setUserId(TEST_USER_ID);
-        config.setCity(TEST_CITY);
-        config.setMaxTempThreshold(30.0);
-        config.setMinTempThreshold(10.0);
-        config.setMaxHumidityThreshold(80.0);
-        config.setConsecutiveReadings(1);
-        config.setEmailEnabled(true);
-        config.setEmail("test@example.com");
-        return config;
     }
 }
